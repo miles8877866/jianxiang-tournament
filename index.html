@@ -81,7 +81,7 @@
   </div>
 
   <script>
-  const GOOGLE_APPS_SCRIPT_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzSR0BkM6wfPITIozHvWKY7MO1ynwtp2WN9QwEhdElrU292_OWXey64HArlZsFJ3TC6og/exec';
+  const DATA_URL = "./data.json";
   const RANK_FIELDS = ["名次公佈","名次公布","冠軍","亞軍","季軍","殿軍","優勝","第一名","第二名","第三名","第四名","第五名","第六名","第七名","第八名","第九名","第十名"];
   const defaultScheduleData = [{ group:"六段組" },{ group:"五段組" },{ group:"四段組" }];
   const customGroupOrder = ["六段組","五段組","四段組","三段組","二段組","初段組","甲組","乙組","丙組","丁組","戊組","己組","庚組","辛A組","辛B組","入門A組","入門B組","幼兒組"];
@@ -95,7 +95,7 @@
   function sortByCustomOrder(list){ const orderMap=new Map(customGroupOrder.map((g,i)=>[g,i])); return list.slice().sort((a,b)=>{ const ai=orderMap.has(a.group)?orderMap.get(a.group):9e9; const bi=orderMap.has(b.group)?orderMap.get(b.group):9e9; if(ai!==bi) return ai-bi; return a.group.localeCompare(b.group,"zh-Hant"); }); }
   function renderTable(dataToDisplay){ const tbody=document.querySelector("#scheduleTable tbody"); tbody.innerHTML=""; const list=dataToDisplay&&dataToDisplay.length?dataToDisplay:[]; if(!list.length){ tbody.innerHTML='<tr><td colspan="8">無符合條件的組別數據。</td></tr>'; document.getElementById("lastUpdated").textContent=nowStr(); return;} list.forEach(item=>{ const tr=document.createElement("tr"); tr.insertCell().textContent=item.group||""; tr.insertCell().textContent=item.round1||"未排定"; tr.insertCell().textContent=item.round2||"未排定"; tr.insertCell().textContent=item.round3||"未排定"; tr.insertCell().textContent=item.round4||"未排定"; tr.insertCell().textContent=item.round5||"未排定"; tr.insertCell().textContent=item.award||"未排定"; const tdRank=document.createElement("td"); tdRank.classList.add("multiline"); tdRank.innerHTML=buildRankValue(item).replace(/\n/g,"<br>"); tr.appendChild(tdRank); tbody.appendChild(tr); }); document.getElementById("lastUpdated").textContent=nowStr(); autoFitTable(); }
   function applyFilterAndRender(){ const selected=document.getElementById("groupSelector").value; let list=allData.slice(); if(selected!=="all") list=list.filter(x=>x.group===selected); list=sortByCustomOrder(list); renderTable(list); }
-  async function loadData(){ setStatus("正在讀取資料…"); try{ const res=await fetch(GOOGLE_APPS_SCRIPT_WEB_APP_URL,{cache:"no-store",headers:{"Accept":"application/json"}}); if(!res.ok) throw new Error("HTTP "+res.status); const data=await res.json(); allData=Array.isArray(data)?data:[]; if(!allData.length) throw new Error("空資料"); setStatus("資料更新完成（"+nowStr()+"）"); }catch(err){ console.error(err); allData=defaultScheduleData.slice(); setStatus("讀取失敗：顯示預設資料。"); }finally{ populateGroupDropdown(allData); applyFilterAndRender(); } }
+  async function loadData(){ setStatus("正在讀取資料…"); try{ const res=await fetch(DATA_URL,{cache:"no-store",headers:{"Accept":"application/json"}}); if(!res.ok) throw new Error("HTTP "+res.status); const data=await res.json(); allData=Array.isArray(data)?data:[]; if(!allData.length) throw new Error("空資料"); setStatus("資料更新完成（"+nowStr()+"）"); }catch(err){ console.error(err); allData=defaultScheduleData.slice(); setStatus("讀取失敗：顯示預設資料。"); }finally{ populateGroupDropdown(allData); applyFilterAndRender(); } }
 
   // AutoFit
   function autoFitTable(){
