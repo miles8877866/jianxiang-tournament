@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>2025 第四屆彰化縣健祥盃全國圍棋公開賽｜賽程 & 名次</title>
+  <style>
+    body { font-family: 'Noto Sans TC','Microsoft JhengHei',system-ui,sans-serif; margin:0; padding:10px; background:#f4f7f6; color:#333; }
+    .container { max-width:900px; margin:0 auto; background:#fff; padding:15px; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,.08); }
+    h1 { color:#2c3e50; text-align:center; margin:0 0 16px; font-size:1.8em; line-height:1.2; }
+    .update-info{ text-align:center; margin-bottom:12px; font-size:.85em; color:#7f8c8d; }
+    .filter-section{ display:flex; gap:8px; align-items:center; justify-content:center; margin-bottom:12px; flex-wrap:wrap; }
+    .filter-section select,.filter-section button{ padding:6px 10px; border:1px solid #ccc; border-radius:6px; font-size:.9em; background:#fff; cursor:pointer; }
+    .filter-section button{ background:#2e7d32; color:#fff; border:none; }
+    table{ width:100%; border-collapse:collapse; margin-bottom:12px; font-size:.9em; table-layout:auto; }
+    th,td{ border:1px solid #ddd; padding:6px 4px; text-align:center; vertical-align:top; white-space:normal; overflow-wrap:anywhere; word-break:break-word; line-height:1.4; background:#fdfdfd; }
+    th{ background:#4CAF50; color:#fff; font-weight:700; }
+    thead th{ position:sticky; top:0; z-index:2; }
+    tbody tr:nth-child(even) td{ background:#f9f9f9; }
+    tbody tr:hover td{ background:#e6ffe6; }
+    td.multiline{ white-space:pre-wrap; overflow-wrap:anywhere; }
+    .important-note{ background:#fff3cd; border-left:5px solid #ffe082; padding:10px; margin-top:10px; border-radius:5px; color:#856404; font-size:.85em; }
+    
+
+@media (max-width:768px){
+  body{ padding:8px; } .container{ padding:12px; } h1{ font-size:1.5em; }
+  .table-wrap{ overflow-x:auto; -webkit-overflow-scrolling:touch; }
+  table{ min-width: 780px; }
+}
+
+.container{ padding:12px; } h1{ font-size:1.5em; }
+      
+      tr{ border:1px solid #ccc; margin-bottom:10px; padding:8px 6px; border-radius:6px; background:#fff; }
+      td{ border:none; border-bottom:1px solid #eee; text-align:left; padding:6px 2px; }
+      
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🏆 2025 第四屆彰化縣健祥盃全國圍棋公開賽</h1>
+    <div class="update-info">請重新整理頁面以更新賽程：<span id="lastUpdated"></span></div>
+
+    <div class="filter-section">
+      <label for="groupSelector">選擇組別：</label>
+      <select id="groupSelector"></select>
+      <button id="refreshBtn" type="button">重新讀取資料</button>
+    </div>
+
+    <div class="table-wrap">
+      <table id="scheduleTable">
+      <thead>
+        <tr>
+          <th>組別</th>
+          <th>第一場</th>
+          <th>第二場</th>
+          <th>第三場</th>
+          <th>第四場</th>
+          <th>第五場</th>
+          <th>頒獎時間</th>
+          <th>名次公佈</th>
+        </tr>
+      </thead>
+      <tbody><tr><td colspan="8">資料載入中…</td></tr></tbody>
+    </table>
+    </div>
+
+    <div id="statusMsg" class="update-info"></div>
+    <div class="important-note"><strong>重要提示：</strong> 各場次開賽時間將依實際比賽進度動態調整，請隨時留意本頁面最新公告！頒獎時間為預估，實際頒獎時間請依現場廣播為準。名次資訊將於比賽結束後陸續更新。</div>
+  </div>
+
+  <script>
+  // ====== 遠端資料來源（你的 GAS Web App） ======
+  const GOOGLE_APPS_SCRIPT_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwBsfiI4tmb-gfi2sxiCXQrFHZL6qt2d5JBLkvfg9CyxTN-9FCAxe40-ssRXPDGG-evEw/exec';
+
+  // ====== 名次相關欄位（支援單欄或多欄） ======
+  const RANK_FIELDS = [
+    "名次公佈","名次公布",    // 單欄型名稱
+    "冠軍","亞軍","季軍","殿軍","優勝", // 多欄名稱
+    "第一名","第二名","第三名","第四名","第五名","第六名","第七名","第八名","第九名","第十名"
+  ];
+
+  // ====== 預設資料：抓不到遠端也可操作 ======
+  const defaultScheduleData = [
+    { group:"六段組", round1:null, round2:null, round3:null, round4:null, round5:null, award:null },
+    { group:"五段組", round1:null, round2:null, round3:null, round4:null, round5:null, award:null },
+    { group:"四段組", round1:null, round2:null, round3:null, round4:null, round5:null, award:null }
+  ];
+
+  // 自訂排序
+  const customGroupOrder = ["六段組","五段組","四段組","三段組","二段組","初段組","甲組","乙組","丙組","丁組","戊組","己組","庚組","辛A組","辛B組","入門A組","入門B組","幼兒組"];
+
+  // 全域狀態
+  let allData = [];
+
+  // ====== 工具 ======
+  function nowStr(){ return new Date().toLocaleString('zh-TW',{year:'numeric',month:'long',day:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}); }
+  function setStatus(msg){ document.getElementById('statusMsg').textContent = msg || ''; }
+
+  // 把名次內容整理成「每行一名」：支援混寫（第一名/冠軍）
+  function normalizeRankBlock(s){
+    if (!s) return "";
+    let t = String(s).trim();
+    if (!t) return "";
+    t = t.replace(/[、，,；;／/]\s*/g, "\n"); // 常見分隔符 → 換行
+    t = t.replace(/\s*(冠軍|亞軍|季軍|殿軍|優勝|第[一二三四五六七八九十]+名)(?:\s*[:：])?/g, "\n$1："); // 強制每個名次新行
+    t = t.split("\n").map(x=>x.trim()).filter(Boolean).join("\n");
+    return t;
+  }
+
+  // 從一列資料 item 產生「名次公佈」顯示文字：
+  // - 若資料只有單欄「名次公佈/名次公布」，直接整理內容。
+  // - 若資料有「冠軍/第二名…」等多欄，會合併成多行。
+  function buildRankValue(item){
+    const get = (k) => (k in item && item[k] != null) ? String(item[k]).trim() : "";
+
+    // 1) 先看是否存在單欄名次
+    const single = normalizeRankBlock(get("名次公佈")) || normalizeRankBlock(get("名次公布")) || normalizeRankBlock(get("ranksCombined"));
+    if (single) return single;
+
+    // 2) 否則合併多欄
+    const lines = [];
+    for (const key of RANK_FIELDS){
+      // 跳過單欄名
+      if (key === "名次公佈" || key === "名次公布") continue;
+      const v = get(key);
+      if (v) lines.push(`${key}：${v}`);
+    }
+    const joined = lines.join("\n");
+    return joined ? normalizeRankBlock(joined) : "未公布";
+  }
+
+  // ====== UI：下拉選單 ======
+  function populateGroupDropdown(data){
+    const sel = document.getElementById("groupSelector");
+    const groups = Array.from(new Set(data.map(x=>x.group).filter(Boolean)));
+    const known = customGroupOrder.filter(g => groups.includes(g));
+    const unknown = groups.filter(g => !customGroupOrder.includes(g)).sort((a,b)=>a.localeCompare(b,"zh-Hant"));
+
+    sel.innerHTML = "";
+    const optAll = document.createElement("option");
+    optAll.value = "all"; optAll.textContent = "顯示所有組別";
+    sel.appendChild(optAll);
+
+    [...known, ...unknown].forEach(g=>{
+      const o = document.createElement("option");
+      o.value = g; o.textContent = g;
+      sel.appendChild(o);
+    });
+  }
+
+  function sortByCustomOrder(list){
+    const orderMap = new Map(customGroupOrder.map((g,i)=>[g,i]));
+    return list.slice().sort((a,b)=>{
+      const ai = orderMap.has(a.group) ? orderMap.get(a.group) : 9e9;
+      const bi = orderMap.has(b.group) ? orderMap.get(b.group) : 9e9;
+      if (ai !== bi) return ai - bi;
+      return a.group.localeCompare(b.group, "zh-Hant");
+    });
+  }
+
+  // ====== 渲染 ======
+  function renderTable(dataToDisplay){
+    const tbody = document.querySelector("#scheduleTable tbody");
+    tbody.innerHTML = "";
+
+    const list = dataToDisplay && dataToDisplay.length ? dataToDisplay : [];
+    if (!list.length){
+      tbody.innerHTML = '<tr><td colspan="8">無符合條件的組別數據。</td></tr>';
+      document.getElementById("lastUpdated").textContent = nowStr();
+      return;
+    }
+
+    list.forEach(item=>{
+      const tr = document.createElement("tr");
+      tr.insertCell().textContent = item.group || "";
+      tr.insertCell().textContent = item.round1 || "未排定";
+      tr.insertCell().textContent = item.round2 || "未排定";
+      tr.insertCell().textContent = item.round3 || "未排定";
+      tr.insertCell().textContent = item.round4 || "未排定";
+      tr.insertCell().textContent = item.round5 || "未排定";
+      tr.insertCell().textContent = item.award  || "未排定";
+
+      const tdRank = document.createElement("td");
+      tdRank.classList.add("multiline");
+      tdRank.textContent = buildRankValue(item);
+      tr.appendChild(tdRank);
+
+      tbody.appendChild(tr);
+    });
+
+    document.getElementById("lastUpdated").textContent = nowStr();
+  }
+
+  function applyFilterAndRender(){
+    const selected = document.getElementById("groupSelector").value;
+    let list = allData.slice();
+    if (selected !== "all") list = list.filter(x => x.group === selected);
+    list = sortByCustomOrder(list);
+    renderTable(list);
+  }
+
+  // ====== 資料載入（含失敗備援） ======
+  async function loadData(){
+    setStatus("正在讀取資料…");
+    try{
+      const res = await fetch(GOOGLE_APPS_SCRIPT_WEB_APP_URL, { cache:"no-store", headers:{ "Accept":"application/json" } });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const data = await res.json();
+      allData = Array.isArray(data) ? data : [];
+      if (!allData.length) throw new Error("空資料");
+      setStatus("資料更新完成（" + nowStr() + "）");
+    }catch(err){
+      console.error(err);
+      allData = defaultScheduleData.slice();
+      setStatus("讀取失敗：顯示預設資料。");
+    }finally{
+      populateGroupDropdown(allData);
+      applyFilterAndRender();
+    }
+  }
+
+  // ====== 初始化 ======
+  document.addEventListener("DOMContentLoaded", ()=>{
+    document.getElementById("groupSelector").addEventListener("change", applyFilterAndRender);
+    document.getElementById("refreshBtn").addEventListener("click", loadData);
+    loadData();
+  });
+  </script>
+</body>
+</html>
